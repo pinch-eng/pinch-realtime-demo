@@ -1,24 +1,39 @@
-# Pinch Real-Time Translation Demo
+## NodeJS Pinch Starter
 
-A minimal web app that demonstrates Pinch real-time speech translation. Speak into your microphone and see original and translated transcripts appear side by side.
+[![Documentation](https://img.shields.io/badge/docs-startpinch.com-blue.svg)](https://docs.startpinch.com)
+
+A minimal web app that demonstrates Pinch real-time speech translation.
+
+## Requirements
+
+- **Node.js 18+**
+- A Pinch API key
 
 ## Setup
 
-1. **Set your API key** in the project root `.env` file:
+1. Clone this repository:
 
-   ```
-   PINCH_API_KEY=your_api_key_here
-   ```
+```bash
+git clone https://github.com/pinch-eng/real-time-demo-app.git
+cd real-time-demo-app
+```
 
-2. **Install dependencies and start the server:**
+2. Set your API key in a `.env` file in the project root:
 
-   ```bash
-   cd examples/real-time-demo-app
-   npm install
-   npm start
-   ```
+```
+PINCH_API_KEY=your_api_key_here
+```
 
-3. **Open the demo** at [http://localhost:3000](http://localhost:3000).
+Get your API key in the [Pinch Developer Portal](https://portal.startpinch.com/dashboard/developers).
+
+3. Install dependencies and start the server:
+
+```bash
+npm install
+npm start
+```
+
+4. Open the demo at [http://localhost:3000](http://localhost:3000).
 
 ## Usage
 
@@ -27,9 +42,20 @@ A minimal web app that demonstrates Pinch real-time speech translation. Speak in
 - The timer at the top shows how long the session has been active.
 - Click **Disconnect** to end the session.
 
-## How it works
+## How It Works
 
 1. The browser sends a request to the local Express server (`/api/session`).
-2. The server proxies the request to `https://startpinch.com/api/beta/session` with your API key and returns a `url` and `token`.
+2. The server proxies the request to the Pinch API with your API key and returns a `url` and `token`.
 3. The browser connects to the room, publishes your microphone audio, and listens for transcript data messages.
 4. Transcripts are displayed in real time, split into original and translated columns.
+
+## Support
+
+For any issues, contact `support@startpinch.com`.
+
+## Getting Help
+
+- [Read our Docs](https://docs.startpinch.com)
+- [Join our Discord](https://discord.gg/s8KFeXpP)
+- [Reach out on LinkedIn](https://www.linkedin.com/company/startpinch)
+- [Reach us on X](https://x.com/StartPinch)
