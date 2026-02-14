@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pinch Real-Time Translation Demo</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #0f0f13;
+      color: #e4e4e7;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 960px;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      padding: 0 20px;
+    }
+
+    /* ---- Header ---- */
+    header {
+      text-align: center;
+      padding: 28px 0 0;
+    }
+
+    .logo-title {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .logo-title img { width: 28px; height: 28px; }
+
+    header h1 {
+      font-size: 17px;
+      font-weight: 600;
+      color: #e4e4e7;
+      letter-spacing: -0.01em;
+    }
+
+    .subtitle {
+      font-size: 12px;
+      color: #52525b;
+      margin-top: 4px;
+      letter-spacing: 0.02em;
+    }
+
+    /* ---- Timer ---- */
+    #timer {
+      text-align: center;
+      font-size: 13px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      color: #71717a;
+      margin-top: 20px;
+      letter-spacing: 0.08em;
+    }
+
+    #timer.active { color: #a1a1aa; }
+
+    /* ---- Waveform ---- */
+    .waveform-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 16px 0;
+      height: 64px;
+      position: relative;
+    }
+
+    #waveCanvas {
+      width: 100%;
+      max-width: 480px;
+      height: 64px;
+      border-radius: 12px;
+    }
+
+    .waveform-idle {
+      font-size: 12px;
+      color: #3f3f46;
+      text-align: center;
+      position: absolute;
+      letter-spacing: 0.04em;
+    }
+
+    /* ---- Controls ---- */
+    .controls {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+      position: relative;
+    }
+
+    button {
+      padding: 10px 28px;
+      border: none;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      letter-spacing: 0.01em;
+    }
+
+    button:active { transform: scale(0.96); }
+    button:disabled { opacity: 0.25; cursor: not-allowed; transform: none; }
+
+    #connectBtn,
+    #disconnectBtn {
+      background: #e4e4e7;
+      color: #18181b;
+    }
+    #connectBtn:hover:not(:disabled),
+    #disconnectBtn:hover:not(:disabled) { background: #fff; }
+
+    /* ---- Audio toggle switch ---- */
+    .audio-toggle-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .audio-toggle-wrapper .toggle-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #71717a;
+      letter-spacing: 0.01em;
+      user-select: none;
+      transition: color 0.15s ease;
+    }
+
+    .audio-toggle-wrapper .toggle-label.active {
+      color: #e4e4e7;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      cursor: pointer;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-switch .slider {
+      position: absolute;
+      inset: 0;
+      background: #27272a;
+      border: 1px solid #3f3f46;
+      border-radius: 12px;
+      transition: all 0.2s ease;
+    }
+
+    .toggle-switch .slider::before {
+      content: "";
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      left: 2px;
+      bottom: 2px;
+      background: #71717a;
+      border-radius: 50%;
+      transition: all 0.2s ease;
+    }
+
+    .toggle-switch input:checked + .slider {
+      background: #3f3f46;
+      border-color: #52525b;
+    }
+
+    .toggle-switch input:checked + .slider::before {
+      transform: translateX(20px);
+      background: #e4e4e7;
+    }
+
+    .toggle-switch input:disabled + .slider {
+      opacity: 0.25;
+      cursor: not-allowed;
+    }
+
+    .toggle-switch input:disabled + .slider::before {
+      cursor: not-allowed;
+    }
+
+    .toggle-switch:has(input:disabled) {
+      cursor: not-allowed;
+    }
+
+    #status {
+      font-size: 12px;
+      color: #52525b;
+      letter-spacing: 0.02em;
+      position: absolute;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+    #status.connected { color: #4ade80; }
+    #status.error { color: #f87171; }
+
+    /* ---- Transcript panels ---- */
+    .transcript-container {
+      flex: 1;
+      display: flex;
+      gap: 12px;
+      overflow: hidden;
+      min-height: 0;
+      margin-bottom: 20px;
+    }
+
+    .transcript-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid #27272a;
+    }
+
+    .transcript-panel.original { background: #18181b; }
+    .transcript-panel.translated { background: #1c1c22; }
+
+    .panel-header {
+      padding: 12px 16px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .original .panel-header {
+      color: #6d9fc5;
+      border-bottom: 1px solid #27272a;
+    }
+
+    .translated .panel-header {
+      color: #9b9ed4;
+      border-bottom: 1px solid #27272a;
+    }
+
+    .header-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .original .header-dot { background: #4f89b7; }
+    .translated .header-dot { background: #8b8fd0; }
+
+    .panel-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 16px;
+    }
+
+    .panel-body::-webkit-scrollbar { width: 4px; }
+    .panel-body::-webkit-scrollbar-track { background: transparent; }
+    .panel-body::-webkit-scrollbar-thumb { background: #27272a; border-radius: 4px; }
+
+    .entry { padding: 6px 0; line-height: 1.6; }
+    .entry + .entry { border-top: 1px solid rgba(255,255,255,0.04); }
+
+    .entry-text { font-size: 14px; color: #d4d4d8; }
+    .original .entry-text { color: #d4d4d8; }
+    .translated .entry-text { color: #c4c5e0; }
+    .entry.interim .entry-text { opacity: 0.4; font-style: italic; }
+
+    .empty-state {
+      font-size: 13px;
+      text-align: center;
+      padding: 40px 16px;
+      color: #3f3f46;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="logo-title">
+        <img src="logo.png" alt="Pinch" />
+        <h1>Pinch Real-Time Translation</h1>
+      </div>
+    </header>
+
+    <div id="timer">00:00</div>
+
+    <div class="waveform-container">
+      <canvas id="waveCanvas"></canvas>
+      <span class="waveform-idle" id="waveLabel">Tap Connect to begin</span>
+    </div>
+
+    <div class="controls">
+      <button id="connectBtn">Connect</button>
+      <button id="disconnectBtn" disabled>Disconnect</button>
+      <div class="audio-toggle-wrapper">
+        <label class="toggle-switch">
+          <input type="checkbox" id="audioToggle" checked disabled />
+          <span class="slider"></span>
+        </label>
+        <span class="toggle-label active" id="audioLabel">Audio On</span>
+      </div>
+      <span id="status"></span>
+    </div>
+
+    <div class="transcript-container">
+      <div class="transcript-panel original">
+        <div class="panel-header"><span class="header-dot"></span> Original</div>
+        <div class="panel-body" id="originalPanel">
+          <div class="empty-state">Your speech will appear here...</div>
+        </div>
+      </div>
+      <div class="transcript-panel translated">
+        <div class="panel-header"><span class="header-dot"></span> Translated</div>
+        <div class="panel-body" id="translatedPanel">
+          <div class="empty-state">Translations will appear here...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { Room, RoomEvent, Track } from 'https://esm.sh/livekit-client@2.7.5';
+
+    // ---- State ----
+    let room = null;
+    let timerInterval = null;
+    let sessionStart = null;
+    let audioEnabled = true;
+    let audioCtx = null;
+    let analyser = null;
+    let micStream = null;
+    let animFrameId = null;
+
+    // DOM refs
+    const connectBtn    = document.getElementById("connectBtn");
+    const disconnectBtn = document.getElementById("disconnectBtn");
+    const audioToggle   = document.getElementById("audioToggle");
+    const statusEl      = document.getElementById("status");
+    const timerEl       = document.getElementById("timer");
+    const originalPanel = document.getElementById("originalPanel");
+    const translatedPanel = document.getElementById("translatedPanel");
+    const waveCanvas    = document.getElementById("waveCanvas");
+    const waveLabel     = document.getElementById("waveLabel");
+    const ctx           = waveCanvas.getContext("2d");
+
+    // ---- Canvas sizing ----
+    function sizeCanvas() {
+      const rect = waveCanvas.getBoundingClientRect();
+      waveCanvas.width = rect.width * devicePixelRatio;
+      waveCanvas.height = rect.height * devicePixelRatio;
+      ctx.scale(devicePixelRatio, devicePixelRatio);
+    }
+    sizeCanvas();
+    window.addEventListener("resize", sizeCanvas);
+
+    // ---- Audio Visualizer ----
+    function startVisualizer() {
+      if (audioCtx) return;
+      audioCtx = new AudioContext();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.75;
+
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+        micStream = stream;
+        const source = audioCtx.createMediaStreamSource(stream);
+        source.connect(analyser);
+        waveLabel.style.display = "none";
+        drawWave();
+      }).catch(() => {
+        waveLabel.textContent = "Mic unavailable";
+      });
+    }
+
+    function stopVisualizer() {
+      if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
+      if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+      if (audioCtx) { audioCtx.close(); audioCtx = null; analyser = null; }
+      // Clear canvas
+      const w = waveCanvas.getBoundingClientRect().width;
+      const h = waveCanvas.getBoundingClientRect().height;
+      ctx.clearRect(0, 0, w, h);
+      waveLabel.style.display = "";
+      waveLabel.textContent = "Tap Connect to begin";
+    }
+
+    function drawWave() {
+      if (!analyser) return;
+      animFrameId = requestAnimationFrame(drawWave);
+
+      const bufLen = analyser.frequencyBinCount;
+      const data = new Uint8Array(bufLen);
+      analyser.getByteFrequencyData(data);
+
+      const w = waveCanvas.getBoundingClientRect().width;
+      const h = waveCanvas.getBoundingClientRect().height;
+      ctx.clearRect(0, 0, w, h);
+
+      const barCount = 48;
+      const gap = 3;
+      const barWidth = (w - gap * (barCount - 1)) / barCount;
+      const step = Math.floor(bufLen / barCount);
+
+      for (let i = 0; i < barCount; i++) {
+        // Average a slice of frequency bins
+        let sum = 0;
+        for (let j = 0; j < step; j++) sum += data[i * step + j];
+        const avg = sum / step;
+
+        const barH = Math.max(2, (avg / 255) * h * 0.85);
+        const x = i * (barWidth + gap);
+        const y = (h - barH) / 2;
+
+        // Gradient from blue to purple based on position
+        const ratio = i / barCount;
+        const r = Math.round(79 + ratio * (139 - 79));
+        const g = Math.round(137 + ratio * (143 - 137));
+        const b = Math.round(183 + ratio * (208 - 183));
+
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.7)`;
+        ctx.beginPath();
+        ctx.roundRect(x, y, barWidth, barH, 2);
+        ctx.fill();
+      }
+    }
+
+    // ---- Timer ----
+    function startTimer() {
+      sessionStart = Date.now();
+      timerEl.textContent = "00:00";
+      timerEl.classList.add("active");
+      timerInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
+        const m = String(Math.floor(elapsed / 60)).padStart(2, "0");
+        const s = String(elapsed % 60).padStart(2, "0");
+        timerEl.textContent = `${m}:${s}`;
+      }, 1000);
+    }
+
+    function stopTimer() {
+      if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+      timerEl.classList.remove("active");
+    }
+
+    function setStatus(text, type) {
+      statusEl.textContent = text;
+      statusEl.className = type || "";
+    }
+
+    // ---- Translated grouping state ----
+    let originalFinalCount = 0;
+    let translatedEntry = null;
+    let translatedText = "";
+    let translatedSyncedTo = 0;
+
+    function clearPanels() {
+      originalPanel.innerHTML = "";
+      translatedPanel.innerHTML = "";
+      originalFinalCount = 0;
+      translatedEntry = null;
+      translatedText = "";
+      translatedSyncedTo = 0;
+    }
+
+    // ---- Original transcript rendering ----
+    function handleOriginal(text, isFinal) {
+      const panel = originalPanel;
+      const empty = panel.querySelector(".empty-state");
+      if (empty) empty.remove();
+
+      if (!isFinal) {
+        let interimEl = panel.querySelector(".entry.interim");
+        if (!interimEl) {
+          interimEl = document.createElement("div");
+          interimEl.className = "entry interim";
+          interimEl.innerHTML = '<span class="entry-text"></span>';
+          panel.appendChild(interimEl);
+        }
+        interimEl.querySelector(".entry-text").textContent = text;
+      } else {
+        const interimEl = panel.querySelector(".entry.interim");
+        if (interimEl) interimEl.remove();
+
+        const entry = document.createElement("div");
+        entry.className = "entry";
+        entry.innerHTML = '<span class="entry-text"></span>';
+        entry.querySelector(".entry-text").textContent = text;
+        panel.appendChild(entry);
+
+        originalFinalCount++;
+      }
+      panel.scrollTop = panel.scrollHeight;
+    }
+
+    // ---- Translated transcript rendering (grouped to match original lines) ----
+    function handleTranslated(text, isFinal) {
+      const panel = translatedPanel;
+      const empty = panel.querySelector(".empty-state");
+      if (empty) empty.remove();
+
+      if (originalFinalCount > translatedSyncedTo && translatedText) {
+        translatedSyncedTo = originalFinalCount;
+        translatedEntry = null;
+        translatedText = "";
+      }
+
+      if (!translatedEntry) {
+        translatedEntry = document.createElement("div");
+        translatedEntry.className = "entry";
+        translatedEntry.innerHTML = '<span class="entry-text"></span>';
+        panel.appendChild(translatedEntry);
+        translatedText = "";
+      }
+
+      if (isFinal) {
+        if (translatedText && text) {
+          translatedText += " " + text;
+        } else {
+          translatedText = text;
+        }
+        translatedEntry.querySelector(".entry-text").textContent = translatedText;
+        translatedEntry.classList.remove("interim");
+      } else {
+        const display = translatedText ? translatedText + " " + text : text;
+        translatedEntry.querySelector(".entry-text").textContent = display;
+        translatedEntry.classList.add("interim");
+      }
+
+      panel.scrollTop = panel.scrollHeight;
+    }
+
+    // ---- Data handler ----
+    const decoder = new TextDecoder("utf-8");
+
+    function handleData(payload) {
+      let str;
+      try { str = decoder.decode(payload); } catch { return; }
+
+      let obj;
+      try { obj = JSON.parse(str); } catch { return; }
+
+      const type = obj.type;
+      const text = obj.text;
+      const isFinal = obj.is_final;
+
+      if (!type || typeof text !== "string") return;
+
+      if (type === "original_transcript") {
+        handleOriginal(text, isFinal !== false);
+      } else if (type === "translated_transcript") {
+        handleTranslated(text, isFinal !== false);
+      }
+    }
+
+    // ---- Audio toggle ----
+    const audioLabel = document.getElementById("audioLabel");
+    audioToggle.addEventListener("change", () => {
+      audioEnabled = audioToggle.checked;
+      audioLabel.textContent = audioEnabled ? "Audio On" : "Audio Off";
+      audioLabel.classList.toggle("active", audioEnabled);
+      document.querySelectorAll("audio.translated-audio").forEach(el => {
+        el.muted = !audioEnabled;
+      });
+    });
+
+    // ---- Connect ----
+    connectBtn.addEventListener("click", async () => {
+      connectBtn.disabled = true;
+      setStatus("Creating session...");
+
+      try {
+        const res = await fetch("/api/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+
+        if (!res.ok) {
+          const err = await res.text();
+          throw new Error(`Session failed: ${res.status} ${err}`);
+        }
+
+        const { url, token } = await res.json();
+
+        setStatus("Connecting...");
+        const r = new Room();
+        room = r;
+
+        r.on(RoomEvent.DataReceived, (payload) => {
+          handleData(payload);
+        });
+
+        r.on(RoomEvent.TrackSubscribed, (track) => {
+          if (track.kind !== Track.Kind.Audio) return;
+          const audioEl = document.createElement("audio");
+          audioEl.className = "translated-audio";
+          audioEl.autoplay = true;
+          audioEl.playsInline = true;
+          audioEl.style.display = "none";
+          audioEl.muted = !audioEnabled;
+          track.attach(audioEl);
+          document.body.appendChild(audioEl);
+        });
+
+        r.on(RoomEvent.TrackUnsubscribed, (track) => {
+          if (track.kind !== Track.Kind.Audio) return;
+          document.querySelectorAll("audio.translated-audio").forEach(el => {
+            el.srcObject = null;
+            el.remove();
+          });
+        });
+
+        r.on(RoomEvent.Disconnected, () => {
+          handleDisconnect();
+        });
+
+        await r.connect(url, token);
+        await r.localParticipant.setMicrophoneEnabled(true);
+
+        setStatus("Connected", "connected");
+        disconnectBtn.disabled = false;
+        audioToggle.disabled = false;
+        clearPanels();
+        startTimer();
+        startVisualizer();
+      } catch (err) {
+        console.error(err);
+        setStatus("Error: " + err.message, "error");
+        connectBtn.disabled = false;
+      }
+    });
+
+    // ---- Disconnect ----
+    function handleDisconnect() {
+      stopTimer();
+      stopVisualizer();
+      document.querySelectorAll("audio.translated-audio").forEach(el => {
+        el.srcObject = null;
+        el.remove();
+      });
+      setStatus("Disconnected");
+      connectBtn.disabled = false;
+      disconnectBtn.disabled = true;
+      audioToggle.disabled = true;
+      audioEnabled = true;
+      audioToggle.checked = true;
+      audioLabel.textContent = "Audio On";
+      audioLabel.classList.add("active");
+      room = null;
+    }
+
+    disconnectBtn.addEventListener("click", async () => {
+      disconnectBtn.disabled = true;
+      if (room) {
+        try { await room.localParticipant.setMicrophoneEnabled(false); } catch {}
+        room.disconnect();
+      }
+      handleDisconnect();
+    });
+
+    window.addEventListener("beforeunload", () => {
+      try { room?.disconnect(); } catch {}
+    });
+  </script>
+</body>
+</html>
