@@ -1,8 +1,11 @@
 ## NodeJS Pinch Starter
 
 [![Documentation](https://img.shields.io/badge/docs-startpinch.com-blue.svg)](https://docs.startpinch.com)
+[![Try Live Playground](https://img.shields.io/badge/try-live_playground-6f42c1.svg)](https://pinch-realtime-demo.fly.dev)
 
 A minimal web app that demonstrates Pinch real-time speech translation.
+
+Try the hosted demo: **https://pinch-realtime-demo.fly.dev**
 
 ## Requirements
 
@@ -52,6 +55,33 @@ npm start
 ## Support
 
 For any issues, contact `support@startpinch.com`.
+
+## Deploy on Fly.io
+
+This repo includes a production-ready Fly setup (`fly.toml` + `Dockerfile`).
+
+1. Install and authenticate `flyctl`.
+2. From this folder, launch the app (one-time):
+
+```bash
+flyctl launch --copy-config --name your-app-name --no-deploy
+```
+
+3. Set your API key as a Fly secret:
+
+```bash
+flyctl secrets set PINCH_API_KEY=your_api_key_here -a your-app-name
+```
+
+4. Deploy:
+
+```bash
+flyctl deploy -a your-app-name
+```
+
+After deploy, your app is available at:
+
+`https://your-app-name.fly.dev`
 
 ## Getting Help
 
